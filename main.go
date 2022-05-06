@@ -11,9 +11,11 @@ import (
 	"time"
 )
 
-func incCounter(ctx context.Context, counter *int) {
+var start time.Time
 
-	t := time.NewTicker(1 * time.Second)
+func incCounter(ctx context.Context, counter *int64) {
+
+	t := time.NewTicker(3 * time.Second)
 
 	for {
 		select {
@@ -27,16 +29,25 @@ func incCounter(ctx context.Context, counter *int) {
 	}
 }
 
-func startServer(counter *int) {
+func startServer(counter *int64) {
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 
 		fmt.Fprintln(w, "Hey, ahh hmmmm")
 	})
 
-	http.HandleFunc("/count", func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc("/start-time", func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintf(w, "Started at : %s\n", start)
+	})
 
-		fmt.Fprintf(w, "Current count : %d\n", counter)
+	http.HandleFunc("/restart-counter", func(w http.ResponseWriter, r *http.Request) {
+		//FIXME: handle race
+		*counter = 0
+		fmt.Fprintln(w, "counter restarted")
+	})
+
+	http.HandleFunc("/count", func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintf(w, "Current count : %d\n", *counter)
 	})
 
 	http.ListenAndServe(":8081", nil)
@@ -44,7 +55,9 @@ func startServer(counter *int) {
 
 func main() {
 
-	var counter = 0
+	var counter = int64(0)
+	loc, _ := time.LoadLocation("Asia/Kolkata")
+	start = time.Now().In(loc)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	go incCounter(ctx, &counter)
